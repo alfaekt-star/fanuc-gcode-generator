@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Генератор G-кода для шестигранника (Fanuc)</title>
+    <style>
+        /* ===== БАЗОВЫЕ СБРОСЫ ===== */
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #e0e5ec, #f5f7fa);
+            min-height: 100vh;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* ===== ОСНОВНОЙ КОНТЕЙНЕР ===== */
+        .container {
+            max-width: 1000px;
+            width: 100%;
+            background: rgba(255,255,255,0.85);
+            backdrop-filter: blur(10px);
+            padding: 30px 35px;
+            border-radius: 24px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+            transition: all 0.3s ease;
+            border: 1px solid rgba(255,255,255,0.3);
+        }
+
+        h1 {
+            text-align: center;
+            font-size: 2rem;
+            font-weight: 700;
+            color: #1a2a4a;
+            margin-bottom: 8px;
+            letter-spacing: -0.5px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+        }
+        h1 small {
+            font-size: 0.9rem;
+            font-weight: 400;
+            color: #5a6a8a;
+            background: #eef2f7;
+            padding: 4px 14px;
+            border-radius: 30px;
+        }
+        .subtitle {
+            text-align: center;
+            color: #5a6a8a;
+            margin-bottom: 25px;
+            font-size: 0.95rem;
+        }
+
+        /* ===== СЕТКА ПАРАМЕТРОВ ===== */
+        .param-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+            gap: 16px 20px;
+            margin-bottom: 20px;
+        }
+        .param-item {
+            display: flex;
+            flex-direction: column;
+            background: #f8faff;
+            padding: 8px 14px 12px 14px;
+            border-radius: 12px;
+            border: 1px solid #e9edf4;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        .param-item:hover {
+            border-color: #b0c4de;
+            box-shadow: 0 4px 12px rgba(0, 20, 40, 0.06);
+        }
+        .param-item label {
+            font-weight: 600;
+            font-size: 0.85rem;
+            color: #1f2a44;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .param-item label small {
+            font-weight: 400;
+            color: #7a8aa0;
+            font-size: 0.7rem;
+            background: #eef2f7;
+            padding: 0 8px;
+            border-radius: 12px;
+        }
+        .param-item input {
+            margin-top: 4px;
+            padding: 8px 12px;
+            border: 1px solid #dce2ec;
+            border-radius: 10px;
+            font-size: 1rem;
+            font-weight: 500;
+            background: white;
+            transition: border 0.2s, box-shadow 0.2s;
+            outline: none;
+            width: 100%;
+        }
+        .param-item input:focus {
+            border-color: #3b7cff;
+            box-shadow: 0 0 0 3px rgba(59, 124, 255, 0.15);
+        }
+
+        /* ===== КНОПКИ ===== */
+        .btn-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin: 15px 0 20px;
+        }
+        .btn {
+            padding: 12px 28px;
+            border: none;
+            border-radius: 60px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            color: white;
+            background: #e0e5ec;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+            flex: 1 1 auto;
+            min-width: 120px;
+        }
+        .btn:active { transform: scale(0.96); }
+        .btn-generate {
+            background: linear-gradient(135deg, #3b7cff, #2b5fd9);
+            box-shadow: 0 6px 20px rgba(59, 124, 255, 0.35);
+        }
+        .btn-generate:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 28px rgba(59, 124, 255, 0.45);
+        }
+        .btn-copy {
+            background: linear-gradient(135deg, #28a745, #1e7e34);
+            box-shadow: 0 6px 20px rgba(40, 167, 69, 0.3);
+        }
+        .btn-copy:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 28px rgba(40, 167, 69, 0.4);
+        }
+        .btn-save {
+            background: linear-gradient(135deg, #ffc107, #e0a800);
+            color: #1f2a44;
+            box-shadow: 0 6px 20px rgba(255, 193, 7, 0.3);
+        }
+        .btn-save:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 28px rgba(255, 193, 7, 0.4);
+        }
+        .btn-clear {
+            background: linear-gradient(135deg, #6c757d, #5a6268);
+            box-shadow: 0 6px 20px rgba(108, 117, 125, 0.25);
+        }
+        .btn-clear:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 28px rgba(108, 117, 125, 0.35);
+        }
+
+        /* ===== ИНДИКАТОР ЗАГРУЗКИ (СПИННЕР) ===== */
+        .spinner {
+            display: none;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,0.3);
+            border-top: 3px solid white;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .btn.loading .spinner { display: inline-block; }
+        .btn.loading .btn-text { display: none; }
+
+        /* ===== АНИМАЦИЯ ПОЯВЛЕНИЯ РЕЗУЛЬТАТОВ ===== */
+        .output-area {
+            margin-top: 10px;
+            opacity: 0;
+            transform: translateY(12px);
+            animation: fadeSlideUp 0.5s ease forwards;
+        }
+        .output-area.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        @keyframes fadeSlideUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        textarea {
+            width: 100%;
+            height: 380px;
+            font-family: 'JetBrains Mono', 'Courier New', monospace;
+            font-size: 13px;
+            padding: 16px;
+            border: 1px solid #dce2ec;
+            border-radius: 16px;
+            resize: vertical;
+            background: #fafcff;
+            color: #1a2a44;
+            transition: border 0.3s, box-shadow 0.3s;
+            line-height: 1.6;
+        }
+        textarea:focus {
+            border-color: #3b7cff;
+            box-shadow: 0 0 0 4px rgba(59, 124, 255, 0.1);
+            outline: none;
+        }
+
+        /* ===== АЛЕРТ (уведомление) ===== */
+        .alert {
+            padding: 12px 18px;
+            border-radius: 16px;
+            margin: 10px 0 15px;
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+            display: none;
+            font-weight: 500;
+            align-items: center;
+            gap: 10px;
+            animation: alertPop 0.3s ease;
+        }
+        .alert.show {
+            display: flex;
+        }
+        @keyframes alertPop {
+            from { opacity: 0; transform: scale(0.96); }
+            to { opacity: 1; transform: scale(1); }
+        }
+        .alert.error {
+            background: #f8d7da;
+            color: #721c24;
+            border-color: #f5c6cb;
+        }
+        .alert.success {
+            background: #d4edda;
+            color: #155724;
+            border-color: #c3e6cb;
+        }
+
+        /* ===== АДАПТИВНОСТЬ ===== */
+        @media (max-width: 700px) {
+            .container { padding: 20px; }
+            .param-grid { grid-template-columns: 1fr; gap: 10px; }
+            .btn-group { flex-direction: column; }
+            .btn { width: 100%; justify-content: center; }
+            h1 { font-size: 1.6rem; flex-wrap: wrap; }
+        }
+
+        /* ===== ПРОЧИЕ УЛУЧШЕНИЯ ===== */
+        .badge {
+            background: #eef2f7;
+            color: #2a3a5a;
+            padding: 2px 12px;
+            border-radius: 30px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            margin-left: 6px;
+        }
+        .footer {
+            margin-top: 20px;
+            text-align: center;
+            font-size: 0.8rem;
+            color: #7a8aa0;
+            border-top: 1px solid #e9edf4;
+            padding-top: 16px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+
+    <h1>
+        ⚙️ Генератор G-кода
+        <small>Fanuc</small>
+    </h1>
+    <div class="subtitle">Для шестигранника на токарно-фрезерном станке</div>
+
+    <!-- Форма с параметрами -->
+    <form id="paramsForm">
+        <div class="param-grid">
+            <div class="param-item">
+                <label>Диаметр фрезы <small>#110</small></label>
+                <input type="text" id="D_freza" value="14">
+            </div>
+            <div class="param-item">
+                <label>Начальный X <small>#122</small></label>
+                <input type="text" id="X_start" value="18">
+            </div>
+            <div class="param-item">
+                <label>Конечный X <small>#112</small></label>
+                <input type="text" id="X_finish" value="11.8">
+            </div>
+            <div class="param-item">
+                <label>Начальный Z <small>#124</small></label>
+                <input type="text" id="Z_start" value="1">
+            </div>
+            <div class="param-item">
+                <label>Конечный Z <small>#118</small></label>
+                <input type="text" id="Z_finish" value="-10">
+            </div>
+            <div class="param-item">
+                <label>Шаг по X <small>#133</small></label>
+                <input type="text" id="shag_X" value="1.25">
+            </div>
+            <div class="param-item">
+                <label>Подача черновая <small>#136</small></label>
+                <input type="text" id="F_cher" value="0.2">
+            </div>
+            <div class="param-item">
+                <label>Радиус скругления <small>#137</small></label>
+                <input type="text" id="radius_skrug" value="0.5">
+            </div>
+            <div class="param-item">
+                <label>Припуск <small>#139</small></label>
+                <input type="text" id="pripusk" value="0.1">
+            </div>
+            <div class="param-item">
+                <label>Направление фрезы <small>#121</small></label>
+                <input type="text" id="napravlenie" value="-1">
+            </div>
+            <div class="param-item">
+                <label>Подача чистовая <small>#142</small></label>
+                <input type="text" id="F_chist" value="0">
+            </div>
+            <div class="param-item">
+                <label>Шаг по Z <small>#123</small></label>
+                <input type="text" id="shag_Z" value="0">
+            </div>
+        </div>
+    </form>
+
+    <!-- Кнопки -->
+    <div class="btn-group">
+        <button class="btn btn-generate" id="generateBtn">
+            <span class="spinner"></span>
+            <span class="btn-text">🚀 Сгенерировать</span>
+        </button>
+        <button class="btn btn-copy" id="copyBtn">📋 Копировать</button>
+        <button class="btn btn-save" id="saveBtn">💾 Сохранить .nc</button>
+        <button class="btn btn-clear" id="clearBtn">🗑️ Очистить</button>
+    </div>
+
+    <!-- Алерт -->
+    <div class="alert" id="alert"></div>
+
+    <!-- Область вывода (анимированная) -->
+    <div class="output-area" id="outputArea">
+        <textarea id="gcodeOutput" readonly placeholder="Здесь появится сгенерированный G-код..."></textarea>
+    </div>
+
+    <div class="footer">
+        ⚡ Генератор G-кода для Fanuc | Версия 2.0
+    </div>
+</div>
+
+<script>
+    // ================================================================
+    //  ЛОГИКА ГЕНЕРАЦИИ (ТА ЖЕ, ЧТО И РАНЬШЕ)
+    // ================================================================
+    function generateGcode(params) {
+        const D_freza = params.D_freza;
+        const X_start = params.X_start;
+        const X_finish = params.X_finish;
+        const Z_start = params.Z_start;
+        const Z_finish = params.Z_finish;
+        let shag_X = params.shag_X;
+        let F_cher = params.F_cher;
+        const radius_skrug = params.radius_skrug;
+        const pripusk = params.pripusk;
+        let napravlenie = params.napravlenie;
+        let F_chist = params.F_chist;
+        let shag_Z = params.shag_Z;
+
+        if (napravlenie === 0 || napravlenie > 1 || napravlenie < -1) napravlenie = -1;
+        if (F_chist === 0) F_chist = F_cher;
+        if (shag_Z === 0) shag_Z = 1.0;
+
+        const shag_tek = shag_X;
+        const D_opisan = X_start + (D_freza / 4.0) * 1.1547 + shag_tek * 2.0;
+        const D_chet = D_opisan / 4.0;
+        const R_sopr = (radius_skrug === 0) ? 0 : radius_skrug + D_freza / 2.0;
+        const D_s_pripusk = X_finish + D_freza + pripusk;
+        const flag_ostry = radius_skrug !== 0;
+        const sign = napravlenie;
+
+        const lines = [];
+        lines.push("%O0209");
+        lines.push("(6-gr AX po osi C - generated by JavaScript)");
+        lines.push("(NL2500)");
+        lines.push("G0 G30 U0 V0");
+        lines.push("G30 W0");
+        lines.push("T0909");
+        lines.push("M45 G99 G40 G80 G54");
+        lines.push("G28 H0");
+        lines.push("G97 S2000 M13 P2");
+        lines.push("M67");
+        lines.push("G17");
+        lines.push("G0 Z10.");
+        lines.push(`G0 X${(D_opisan + D_freza + 5).toFixed(3)}`);
+        lines.push("G0 Z2.");
+        lines.push("M08");
+        lines.push("G112");
+        lines.push(`G1 C${(-sign * D_opisan / 2).toFixed(3)} F0.5`);
+
+        function generatePass(D_tek, C_tek, i, F_feed) {
+            const pass = [];
+            if (flag_ostry) {
+                const X_start_move = D_tek + shag_tek * 2.0;
+                pass.push(`G1 X${X_start_move.toFixed(3)} C${(sign * C_tek).toFixed(3)} F0.5`);
+                pass.push(`G1 X${D_tek.toFixed(3)} C${(sign * C_tek).toFixed(3)} F0.5`);
+            } else {
+                pass.push(`G1 X${D_tek.toFixed(3)} C${(sign * C_tek).toFixed(3)} F0.5`);
+            }
+            pass.push(`G1 C${(-sign * C_tek).toFixed(3)} R${R_sopr.toFixed(3)} F${F_feed.toFixed(3)}`);
+            const C2 = -sign * (D_tek / 2.0 * 1.1547);
+            pass.push(`G1 X0.000 C${C2.toFixed(3)} R${R_sopr.toFixed(3)} F${F_feed.toFixed(3)}`);
+            pass.push(`G1 X${(-D_tek).toFixed(3)} C${(-sign * C_tek).toFixed(3)} R${R_sopr.toFixed(3)} F${F_feed.toFixed(3)}`);
+            pass.push(`G1 C${(sign * C_tek).toFixed(3)} R${R_sopr.toFixed(3)} F${F_feed.toFixed(3)}`);
+            const C5 = sign * (D_tek / 2.0 * 1.1547);
+            pass.push(`G1 X0.000 C${C5.toFixed(3)} R${R_sopr.toFixed(3)} F${F_feed.toFixed(3)}`);
+            pass.push(`G1 X${D_tek.toFixed(3)} C${(sign * C_tek).toFixed(3)} R${R_sopr.toFixed(3)} F${F_feed.toFixed(3)}`);
+            if (flag_ostry) {
+                pass.push(`G1 X${(D_tek + 0.2).toFixed(3)} C0.000 F${F_feed.toFixed(3)}`);
+            }
+            return pass;
+        }
+
+        const zPositions = [];
+        let zCurrent = Z_start;
+        let countZ = 0;
+        while (zCurrent > Z_finish) {
+            zCurrent = Z_start - shag_Z * (countZ + 1);
+            if (zCurrent < Z_finish) zCurrent = Z_finish;
+            zPositions.push(zCurrent);
+            countZ++;
+            if (zCurrent === Z_finish) break;
+        }
+
+        for (const z of zPositions) {
+            lines.push(`G0 Z${z.toFixed(3)} F0.5`);
+            let i = 1;
+            while (true) {
+                let D_tek = D_opisan - i * shag_tek + (D_freza / 2.0) * 1.1547;
+                let C_tek = D_chet * 1.1547 - (0.577 * shag_tek / 2.0 * i) + (D_freza / 2.0 * 1.1547 / 4.0 * 1.15);
+
+                if (D_tek <= D_s_pripusk) {
+                    D_tek = D_s_pripusk;
+                    C_tek = D_s_pripusk / 4.0 * 1.1547;
+                    lines.push(...generatePass(D_tek, C_tek, i, F_cher));
+                    const D_chist = X_finish + D_freza;
+                    const C_chist = D_chist / 4.0 * 1.1547;
+                    lines.push(...generatePass(D_chist, C_chist, i, F_chist));
+                    break;
+                } else {
+                    lines.push(...generatePass(D_tek, C_tek, i, F_cher));
+                    i++;
+                }
+            }
+        }
+
+        lines.push("G113");
+        lines.push("G0 Z10.");
+        lines.push("M5");
+        lines.push("G18");
+        lines.push("M46 G99");
+        lines.push("M67");
+        lines.push("G30 U0 M9");
+        lines.push("G30 W0");
+        lines.push("M30");
+        lines.push("%");
+        return lines.join("\n");
+    }
+
+    // ================================================================
+    //  UI – ОБРАБОТЧИКИ С АНИМАЦИЯМИ
+    // ================================================================
+
+    document.addEventListener('DOMContentLoaded', function() {
+        const generateBtn = document.getElementById('generateBtn');
+        const copyBtn = document.getElementById('copyBtn');
+        const saveBtn = document.getElementById('saveBtn');
+        const clearBtn = document.getElementById('clearBtn');
+        const output = document.getElementById('gcodeOutput');
+        const alertBox = document.getElementById('alert');
+        const outputArea = document.getElementById('outputArea');
+
+        function showAlert(msg, type = 'success') {
+            alertBox.textContent = msg;
+            alertBox.className = 'alert show ' + type;
+            setTimeout(() => { alertBox.className = 'alert'; }, 4000);
+        }
+
+        function getParams() {
+            const ids = [
+                'D_freza', 'X_start', 'X_finish', 'Z_start', 'Z_finish',
+                'shag_X', 'F_cher', 'radius_skrug', 'pripusk',
+                'napravlenie', 'F_chist', 'shag_Z'
+            ];
+            const params = {};
+            for (const id of ids) {
+                const el = document.getElementById(id);
+                let val = parseFloat(el.value.replace(',', '.'));
+                if (isNaN(val)) {
+                    showAlert(`Ошибка: поле "${id}" должно быть числом`, 'error');
+                    return null;
+                }
+                params[id] = val;
+            }
+            return params;
+        }
+
+        // Генерация с анимацией спиннера
+        generateBtn.addEventListener('click', function() {
+            const params = getParams();
+            if (!params) return;
+
+            // Показываем спиннер на кнопке
+            generateBtn.classList.add('loading');
+            generateBtn.disabled = true;
+
+            // Имитация задержки для красоты (можно убрать, если не нужно)
+            setTimeout(() => {
+                try {
+                    const gcode = generateGcode(params);
+                    output.value = gcode;
+                    // Показываем область вывода с анимацией
+                    outputArea.classList.add('visible');
+                    showAlert('✅ G-код успешно сгенерирован!', 'success');
+                } catch (e) {
+                    showAlert('❌ Ошибка: ' + e.message, 'error');
+                } finally {
+                    generateBtn.classList.remove('loading');
+                    generateBtn.disabled = false;
+                }
+            }, 400); // небольшая задержка, чтобы спиннер успел показаться
+        });
+
+        // Копирование с анимацией
+        copyBtn.addEventListener('click', function() {
+            const code = output.value;
+            if (!code) {
+                showAlert('⚠️ Сначала сгенерируйте код!', 'error');
+                return;
+            }
+            navigator.clipboard.writeText(code).then(() => {
+                showAlert('📋 Код скопирован в буфер!', 'success');
+                // Визуальный отклик кнопки
+                copyBtn.style.transform = 'scale(0.95)';
+                setTimeout(() => copyBtn.style.transform = '', 200);
+            }).catch(() => {
+                output.select();
+                document.execCommand('copy');
+                showAlert('📋 Код скопирован!', 'success');
+            });
+        });
+
+        // Сохранение файла
+        saveBtn.addEventListener('click', function() {
+            const code = output.value;
+            if (!code) {
+                showAlert('⚠️ Сначала сгенерируйте код!', 'error');
+                return;
+            }
+            const blob = new Blob([code], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'generated_6gr.nc';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            showAlert('💾 Файл сохранён!', 'success');
+        });
+
+        // Очистка с анимацией
+        clearBtn.addEventListener('click', function() {
+            output.value = '';
+            outputArea.classList.remove('visible');
+            showAlert('🗑️ Поле очищено', 'success');
+        });
+
+        // Автоматическая генерация при загрузке (по желанию) – можно раскомментировать
+        // generateBtn.click();
+    });
+</script>
+
+</body>
+</html>
